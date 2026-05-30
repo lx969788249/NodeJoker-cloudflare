@@ -18,6 +18,8 @@ const ALLOWED_MIME = new Set([
 
 // 不需要转 JPEG 的格式 (GIF 保留动画, AVIF 本身已现代)
 const SKIP_JPEG_CONVERT = new Set(['image/gif', 'image/avif']);
+// 超过此大小的文件跳过 Photon 转换 (高分辨率图片解码后可能 OOM)
+const MAX_CONVERT_SIZE = 2 * 1024 * 1024; // 2MB
 
 uploadRoutes.post('/upload', authMiddleware, async (c) => {
   const user = c.get('user');
@@ -46,18 +48,18 @@ uploadRoutes.post('/upload', authMiddleware, async (c) => {
   const id = nanoid();
   const inputBuffer = await fileObj.arrayBuffer();
 
-  // 上传时转 JPEG (PNG/WebP → JPEG, 大幅减小体积)
+  // 上传时转 JPEG (大幅减小体积，>2MB 文件跳过以免 OOM)
   let finalBuffer: ArrayBuffer | Uint8Array = inputBuffer;
   let finalMime = fileObj.type;
   let finalExt: string;
   let finalSize = fileObj.size;
+  let converted = false;
 
-  if (!SKIP_JPEG_CONVERT.has(fileObj.type)) {
+  if (!SKIP_JPEG_CONVERT.has(fileObj.type) && fileObj.size <= MAX_CONVERT_SIZE) {
     try {
       const compConfig = await getCompressionConfig(db);
       let image: PhotonImage | null = PhotonImage.new_from_byteslice(new Uint8Array(inputBuffer));
       try {
-        // 超大图先缩放到安全尺寸 (降低内存，避免 OOM)
         const MAX_UPLOAD_DIM = 4000;
         if (image.get_width() > MAX_UPLOAD_DIM || image.get_height() > MAX_UPLOAD_DIM) {
           const ratio = Math.min(MAX_UPLOAD_DIM / image.get_width(), MAX_UPLOAD_DIM / image.get_height());
@@ -72,6 +74,7 @@ uploadRoutes.post('/upload', authMiddleware, async (c) => {
         finalMime = 'image/jpeg';
         finalExt = 'jpg';
         finalSize = jpegBytes.length;
+        converted = true;
       } finally {
         if (image) image.free();
       }
@@ -97,7 +100,7 @@ uploadRoutes.post('/upload', authMiddleware, async (c) => {
 
   const baseUrl = getBaseUrl(c.req.raw);
   const fileUrl = `${baseUrl}/uploads/${filename}`;
-  return json({ id, url: fileUrl, size: finalSize, format: finalExt, markdown: `![image](${fileUrl})`, html: `<img src="${fileUrl}" alt="image" />`, bbcode: `[img]${fileUrl}[/img]` });
+  return json({ id, url: fileUrl, size: finalSize, format: finalExt, converted, markdown: `![image](${fileUrl})`, html: `<img src="${fileUrl}" alt="image" />`, bbcode: `[img]${fileUrl}[/img]` });
 });
 
 export default uploadRoutes;
