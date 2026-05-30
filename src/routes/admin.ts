@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../crypto';
 import type { R2Bucket } from '@cloudflare/workers-types';
 import { authMiddleware, requireAdmin } from '../auth';
 import { listUsers, getUser, updateUser, deleteUser, deleteImagesByIds, getBranding, getBackupConfig, setSetting, listImagesByUser } from '../db';
@@ -30,7 +30,7 @@ adminRoutes.post('/admin/users/:id', authMiddleware, requireAdmin, async (c) => 
   let bumped = false;
   const updates: Record<string, unknown> = {};
   if (target.username !== nextName.slice(0, 30)) { updates.username = nextName.slice(0, 30); bumped = true; }
-  if (body.password) { updates.passwordHash = await bcrypt.hash(body.password, 10); bumped = true; }
+  if (body.password) { updates.passwordHash = await hashPassword(body.password); bumped = true; }
   if (bumped) { updates.sessionVersion = (target.sessionVersion || 1) + 1; updates.token = null; }
   if (Object.keys(updates).length > 0) await updateUser(c.env.DB, targetId, updates as Record<string, string | number | null>);
 

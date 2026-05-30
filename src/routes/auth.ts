@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import bcrypt from 'bcryptjs';
+import { hashPassword, verifyPassword } from '../crypto';
 import { getUserByUsername, getUser, updateUser, createUser, getBranding } from '../db';
 import { generateApiKey, generateToken, nanoid, json, errorJson } from '../utils';
 import { authMiddleware } from '../auth';
@@ -19,10 +19,10 @@ authRoutes.post('/auth/login', async (c) => {
   if (!user) return errorJson('用户名或密码错误', 401);
 
   if (!user.passwordHash) {
-    user.passwordHash = await bcrypt.hash(password, 10);
+    user.passwordHash = await hashPassword(password);
     await updateUser(db, user.id, { passwordHash: user.passwordHash });
   } else {
-    if (!await bcrypt.compare(password, user.passwordHash)) return errorJson('用户名或密码错误', 401);
+    if (!await verifyPassword(password, user.passwordHash)) return errorJson('用户名或密码错误', 401);
   }
 
   const token = generateToken();
@@ -49,7 +49,7 @@ authRoutes.post('/auth/register', async (c) => {
   if (!(await getBranding(db)).registrationEnabled) return errorJson('注册已关闭', 403);
   if (await getUserByUsername(db, username)) return errorJson('用户名已存在');
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await hashPassword(password);
   const apiKey = generateApiKey();
   const newId = nanoid();
   await createUser(db, { id: newId, username, passwordHash, apiKey, token: null, level: 1, sessionVersion: 1, createdAt: Date.now() });
@@ -69,12 +69,12 @@ async function handleCredentialChange(c: any): Promise<Response> {
   const db = c.env.DB as Env['DB'];
   const dbUser = await getUser(db, u.id);
   if (!dbUser) return errorJson('用户不存在', 404);
-  if (!dbUser.passwordHash || !await bcrypt.compare(oldPassword, dbUser.passwordHash)) return errorJson('原密码错误', 401);
+  if (!dbUser.passwordHash || !await verifyPassword(oldPassword, dbUser.passwordHash)) return errorJson('原密码错误', 401);
 
   const dup = await getUserByUsername(db, nextUsername);
   if (dup && dup.id !== dbUser.id) return errorJson('用户名已存在');
 
-  await updateUser(db, dbUser.id, { username: nextUsername.slice(0, 30), passwordHash: await bcrypt.hash(newPassword, 10), sessionVersion: (dbUser.sessionVersion || 1) + 1, token: null });
+  await updateUser(db, dbUser.id, { username: nextUsername.slice(0, 30), passwordHash: await hashPassword(newPassword), sessionVersion: (dbUser.sessionVersion || 1) + 1, token: null });
   return json({ message: '账号密码已更新，请重新登录', username: nextUsername.slice(0, 30) });
 }
 

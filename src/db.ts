@@ -250,41 +250,41 @@ export async function setSetting(db: D1Database, key: string, value: string): Pr
 // --- Defaults ---
 
 export async function ensureSchema(db: D1Database): Promise<void> {
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      username TEXT UNIQUE,
-      passwordHash TEXT,
-      apiKey TEXT,
-      token TEXT,
-      level INTEGER DEFAULT 1,
-      sessionVersion INTEGER DEFAULT 1,
-      createdAt INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS images (
-      id TEXT PRIMARY KEY,
-      userId TEXT,
-      filename TEXT,
-      mime TEXT,
-      size INTEGER,
-      width INTEGER,
-      height INTEGER,
-      createdAt INTEGER,
-      autoDelete INTEGER DEFAULT 0,
-      deleteAfterDays INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS settings (
-      key TEXT PRIMARY KEY,
-      value TEXT
-    );
-  `);
+  await db.prepare(`CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT UNIQUE,
+    passwordHash TEXT,
+    apiKey TEXT,
+    token TEXT,
+    level INTEGER DEFAULT 1,
+    sessionVersion INTEGER DEFAULT 1,
+    createdAt INTEGER
+  )`).run();
+
+  await db.prepare(`CREATE TABLE IF NOT EXISTS images (
+    id TEXT PRIMARY KEY,
+    userId TEXT,
+    filename TEXT,
+    mime TEXT,
+    size INTEGER,
+    width INTEGER,
+    height INTEGER,
+    createdAt INTEGER,
+    autoDelete INTEGER DEFAULT 0,
+    deleteAfterDays INTEGER
+  )`).run();
+
+  await db.prepare(`CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )`).run();
 }
 
 export async function ensureDefaultUser(db: D1Database): Promise<void> {
   const admin = await getUser(db, 'admin');
   if (!admin) {
-    const bcrypt = await import('bcryptjs');
-    const passwordHash = bcrypt.default.hashSync('admin', 10);
+    const { hashPassword } = await import('./crypto');
+    const passwordHash = await hashPassword('admin');
     const { generateApiKey } = await import('./utils');
     const apiKey = generateApiKey();
     await createUser(db, {
