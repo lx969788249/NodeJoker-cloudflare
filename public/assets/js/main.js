@@ -38,8 +38,9 @@ const state = {
   },
   watermark: {
     enabled: false,
-    opacity: 0.5,
-    position: 'br'
+    text: 'Watermark',
+    position: 'br',
+    fontSize: 24
   }
 };
 
@@ -128,11 +129,8 @@ const els = {
   // 水印设置
   watermarkEnabled: document.getElementById('watermarkEnabled'),
   watermarkPosition: document.getElementById('watermarkPosition'),
-  watermarkOpacity: document.getElementById('watermarkOpacity'),
-  watermarkOpacityValue: document.getElementById('watermarkOpacityValue'),
-  watermarkFileInput: document.getElementById('watermarkFileInput'),
-  uploadWatermarkBtn: document.getElementById('uploadWatermarkBtn'),
-  watermarkUploadStatus: document.getElementById('watermarkUploadStatus'),
+  watermarkText: document.getElementById('watermarkText'),
+  watermarkFontSize: document.getElementById('watermarkFontSize'),
 };
 
 const allowedTypes = [
@@ -1161,43 +1159,16 @@ function setupEventListeners() {
       markSectionDirty(els.watermarkPosition);
     });
   }
-  if (els.watermarkOpacity) {
-    els.watermarkOpacity.addEventListener('input', () => {
-      state.watermark.opacity = parseInt(els.watermarkOpacity.value) / 100;
-      if (els.watermarkOpacityValue) {
-        els.watermarkOpacityValue.textContent = els.watermarkOpacity.value + '%';
-      }
-      markSectionDirty(els.watermarkOpacity);
+  if (els.watermarkText) {
+    els.watermarkText.addEventListener('input', () => {
+      state.watermark.text = els.watermarkText.value || 'Watermark';
+      markSectionDirty(els.watermarkText);
     });
   }
-  if (els.uploadWatermarkBtn && els.watermarkFileInput) {
-    els.uploadWatermarkBtn.addEventListener('click', () => els.watermarkFileInput.click());
-    els.watermarkFileInput.addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append('watermark', file);
-      try {
-        const res = await fetch('/api/settings/watermark/upload', {
-          method: 'POST',
-          headers: { 'Authorization': 'Bearer ' + getToken() },
-          body: formData,
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.message || '上传失败');
-        if (els.watermarkUploadStatus) {
-          els.watermarkUploadStatus.textContent = '✓ 已上传';
-          els.watermarkUploadStatus.style.color = 'var(--success, #4caf50)';
-        }
-        showNotification('水印图片已上传', 'success');
-      } catch (err) {
-        console.error(err);
-        if (els.watermarkUploadStatus) {
-          els.watermarkUploadStatus.textContent = '✗ ' + err.message;
-          els.watermarkUploadStatus.style.color = 'var(--danger, #f44336)';
-        }
-        showNotification(err.message, 'error');
-      }
+  if (els.watermarkFontSize) {
+    els.watermarkFontSize.addEventListener('input', () => {
+      state.watermark.fontSize = Math.min(200, Math.max(8, parseInt(els.watermarkFontSize.value) || 24));
+      markSectionDirty(els.watermarkFontSize);
     });
   }
 
@@ -1637,13 +1608,14 @@ function applyBranding() {
   const displayName = state.branding.name || 'Nodeimage';
   const displaySubtitle = state.branding.subtitle || 'NodeSeek专用图床·克隆版';
   const defaultLogo = els.brandLogo?.dataset?.default || els.brandLogo?.src || '';
-  const displayIcon = state.branding.icon || defaultLogo;
+  const displayIcon = (state.branding.icon && (state.branding.icon.startsWith('http') || state.branding.icon.startsWith('data:') || state.branding.icon.startsWith('/'))) ? state.branding.icon : defaultLogo;
 
   if (els.brandName) els.brandName.textContent = displayName;
   if (els.brandSubtitle) els.brandSubtitle.textContent = displaySubtitle;
   if (els.brandLogo) {
-    if (state.branding.icon) els.brandLogo.src = state.branding.icon;
-    else els.brandLogo.src = defaultLogo;
+	    const iconVal = state.branding.icon || '';
+	    const isValidImgUrl = iconVal && (iconVal.startsWith('http') || iconVal.startsWith('data:') || iconVal.startsWith('/'));
+	    els.brandLogo.src = isValidImgUrl ? iconVal : defaultLogo;
   }
   if (els.brandNameInput) els.brandNameInput.value = state.branding.name;
   if (els.brandSubtitleInput) els.brandSubtitleInput.value = state.branding.subtitle;
@@ -1737,24 +1709,21 @@ async function loadWatermarkSettings() {
     const data = await res.json();
     state.watermark = {
       enabled: !!data.enabled,
-      opacity: Number(data.opacity) || 0.5,
+      text: data.text || 'Watermark',
       position: data.position || 'br',
+      fontSize: Number(data.fontSize) || 24,
     };
     applyWatermarkSettings();
   } catch {
-    // ignore — watermark disabled by default
+    // ignore
   }
 }
 
 function applyWatermarkSettings() {
   if (els.watermarkEnabled) els.watermarkEnabled.checked = state.watermark.enabled;
   if (els.watermarkPosition) els.watermarkPosition.value = state.watermark.position;
-  if (els.watermarkOpacity) {
-    els.watermarkOpacity.value = Math.round(state.watermark.opacity * 100);
-    if (els.watermarkOpacityValue) {
-      els.watermarkOpacityValue.textContent = Math.round(state.watermark.opacity * 100) + '%';
-    }
-  }
+  if (els.watermarkText) els.watermarkText.value = state.watermark.text;
+  if (els.watermarkFontSize) els.watermarkFontSize.value = state.watermark.fontSize;
 }
 
 async function saveWatermarkSettings() {
@@ -1763,8 +1732,9 @@ async function saveWatermarkSettings() {
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
     body: JSON.stringify({
       enabled: state.watermark.enabled,
-      opacity: state.watermark.opacity,
+      text: state.watermark.text,
       position: state.watermark.position,
+      fontSize: state.watermark.fontSize,
     }),
   });
   if (!res.ok) {

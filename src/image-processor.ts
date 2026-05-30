@@ -1,4 +1,4 @@
-import { PhotonImage, resize, watermark, SamplingFilter } from '@cf-wasm/photon/workerd';
+import { PhotonImage, resize, draw_text_with_border, SamplingFilter } from '@cf-wasm/photon/workerd';
 import type { R2Bucket } from '@cloudflare/workers-types';
 import type { WatermarkConfig } from './db';
 
@@ -29,11 +29,11 @@ export async function processImage(
 	try {
 		image = PhotonImage.new_from_byteslice(inputBytes);
 	} catch {
-		return null; // 图片损坏
+		return null;
 	}
 
 	try {
-		// 超大图片保护：超过 6000px 直接拒绝处理
+		// 超大图保护
 		if (image.get_width() > 6000 || image.get_height() > 6000) {
 			image.free();
 			return null;
@@ -50,12 +50,10 @@ export async function processImage(
 				targetH = Math.min(opts.height, MAX_DIMENSION);
 			} else if (opts.width) {
 				targetW = Math.min(opts.width, MAX_DIMENSION);
-				const ratio = targetW / srcW;
-				targetH = Math.round(srcH * ratio);
+				targetH = Math.round(srcH * (targetW / srcW));
 			} else {
 				targetH = Math.min(opts.height!, MAX_DIMENSION);
-				const ratio = targetH / srcH;
-				targetW = Math.round(srcW * ratio);
+				targetW = Math.round(srcW * (targetH / srcH));
 			}
 
 			if (targetW !== srcW || targetH !== srcH) {
@@ -65,41 +63,27 @@ export async function processImage(
 			}
 		}
 
-		// --- 水印 ---
-		if (opts.watermark && wmConfig?.enabled) {
-			const wmObject = await bucket.get('_system/watermark.png');
-			if (wmObject) {
-				const wmBytes = new Uint8Array(await wmObject.arrayBuffer());
-				let wmImage: PhotonImage | null = null;
-				try {
-					wmImage = PhotonImage.new_from_byteslice(wmBytes);
+		// --- 文字水印 ---
+		if (opts.watermark && wmConfig?.enabled && wmConfig.text) {
+			const fs = Math.min(200, Math.max(8, wmConfig.fontSize || 24));
+			// 根据位置计算文字坐标
+			const padding = 20;
+			const imgW = image.get_width();
+			const imgH = image.get_height();
+			// 估算文字宽度: 每个字符约 font_size * 0.6
+			const textW = Math.floor(wmConfig.text.length * fs * 0.6);
+			const textH = fs;
 
-					// 水印大小为原图宽度的 20%，最小 80px
-					const wmWidth = Math.max(80, Math.floor(image.get_width() * 0.2));
-					const wmRatio = wmWidth / wmImage.get_width();
-					const wmHeight = Math.floor(wmImage.get_height() * wmRatio);
-
-					if (wmWidth !== wmImage.get_width() || wmHeight !== wmImage.get_height()) {
-						const wmResized = resize(wmImage, wmWidth, wmHeight, SamplingFilter.Lanczos3);
-						wmImage.free();
-						wmImage = wmResized;
-					}
-
-					const padding = 20;
-					let x: number, y: number;
-					switch (wmConfig.position) {
-						case 'tl': x = padding; y = padding; break;
-						case 'tr': x = image.get_width() - wmWidth - padding; y = padding; break;
-						case 'bl': x = padding; y = image.get_height() - wmHeight - padding; break;
-						case 'center': x = Math.floor((image.get_width() - wmWidth) / 2); y = Math.floor((image.get_height() - wmHeight) / 2); break;
-						case 'br': default: x = image.get_width() - wmWidth - padding; y = image.get_height() - wmHeight - padding; break;
-					}
-
-					watermark(image, wmImage, BigInt(x), BigInt(y));
-				} finally {
-					if (wmImage) wmImage.free();
-				}
+			let x: number, y: number;
+			switch (wmConfig.position) {
+				case 'tl': x = padding; y = padding + textH; break;
+				case 'tr': x = imgW - textW - padding; y = padding + textH; break;
+				case 'bl': x = padding; y = imgH - padding; break;
+				case 'center': x = Math.floor((imgW - textW) / 2); y = Math.floor((imgH + textH) / 2); break;
+				case 'br': default: x = imgW - textW - padding; y = imgH - padding; break;
 			}
+
+			draw_text_with_border(image, wmConfig.text, x, y, fs);
 		}
 
 		// --- 编码输出 ---

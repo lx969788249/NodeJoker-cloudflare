@@ -124,7 +124,7 @@ adminRoutes.post('/settings/backup', authMiddleware, requireAdmin, async (c) => 
 // GET /api/settings/watermark
 adminRoutes.get('/settings/watermark', authMiddleware, requireAdmin, async (c) => {
   const config = await getWatermarkConfig(c.env.DB);
-  return json({ enabled: config.enabled, opacity: config.opacity, position: config.position });
+  return json({ enabled: config.enabled, text: config.text, position: config.position, fontSize: config.fontSize });
 });
 
 // POST /api/settings/watermark
@@ -132,33 +132,12 @@ adminRoutes.post('/settings/watermark', authMiddleware, requireAdmin, async (c) 
   const body = await c.req.json().catch(() => ({}));
   const config = {
     enabled: body.enabled === true || body.enabled === 'true',
-    opacity: Math.min(1, Math.max(0, Number(body.opacity) || 0.5)),
+    text: (body.text || 'Watermark').slice(0, 50),
     position: ['tl', 'tr', 'bl', 'br', 'center'].includes(body.position) ? body.position : 'br',
+    fontSize: Math.min(200, Math.max(8, Number(body.fontSize) || 24)),
   };
   await setSetting(c.env.DB, 'watermark', JSON.stringify(config));
   return json({ message: '水印设置已更新', watermark: config });
-});
-
-// POST /api/settings/watermark/upload — 上传水印图片
-adminRoutes.post('/settings/watermark/upload', authMiddleware, requireAdmin, async (c) => {
-  const formData = await c.req.formData().catch(() => null);
-  if (!formData) return errorJson('无效的请求数据');
-
-  const file = formData.get('watermark');
-  if (!file || typeof file === 'string') return errorJson('缺少水印图片');
-
-  const fileObj = file as unknown as { type: string; size: number; arrayBuffer(): Promise<ArrayBuffer> };
-  if (!fileObj.type.startsWith('image/png') && !fileObj.type.startsWith('image/jpeg')) {
-    return errorJson('水印图片仅支持 PNG/JPEG 格式');
-  }
-  if (fileObj.size > 5 * 1024 * 1024) {
-    return errorJson('水印图片大小不能超过 5MB', 413);
-  }
-
-  const buffer = await fileObj.arrayBuffer();
-  const bucket = c.env.IMAGES as R2Bucket;
-  await bucket.put('_system/watermark.png', buffer, { httpMetadata: { contentType: fileObj.type } });
-  return json({ message: '水印图片已上传' });
 });
 
 // GET /api/stats

@@ -46,8 +46,9 @@ export interface BackupConfig {
 
 export interface WatermarkConfig {
   enabled: boolean;
-  opacity: number;
+  text: string;
   position: 'tl' | 'tr' | 'bl' | 'br' | 'center';
+  fontSize: number;
 }
 
 // --- User operations ---
@@ -314,7 +315,7 @@ export async function getWatermarkConfig(db: D1Database): Promise<WatermarkConfi
       // fall through
     }
   }
-  return { enabled: false, opacity: 0.5, position: 'br' };
+  return { enabled: false, text: 'Watermark', position: 'br', fontSize: 24 };
 }
 
 export async function getBranding(db: D1Database): Promise<Branding> {
