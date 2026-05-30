@@ -1,21 +1,25 @@
 # Nodeimage Cloudflare 版
 
-> Nodeimage 图床的 Cloudflare 重构版。Fork → `npm run deploy` → 完成。
+> Nodeimage 图床的 Cloudflare 重构版。纯浏览器操作，不用打开终端。
 
-## 一键部署
+## 部署
 
-```bash
-git clone <你的仓库>
-cd nodeimage-cloudflare
-npm install
-npm run deploy
-```
+**1. Fork 本仓库**
 
-`wrangler deploy` 会自动创建 D1 数据库 + R2 存储桶 + 部署 Worker。
+**2. 打开 [Cloudflare Dashboard](https://dash.cloudflare.com)** → Workers & Pages → 创建 → Workers → Connect to Git → 选你 Fork 的仓库
 
-然后打开 Worker 域名，首次访问自动建表。
+**3. 配置部署命令**：
 
-默认账号 **admin / admin**，登录后改密码。
+| 设置 | 值 |
+|------|-----|
+| Build command | （留空） |
+| Deploy command | `npm run deploy` |
+
+**4. 保存并部署** — Cloudflare 自动创建 D1 + R2 + Worker。
+
+之后每次 push 自动部署。首次访问自动建表，默认账号 **admin / admin**。
+
+> 也可以命令行部署：`npm install && npm run deploy`
 
 ## 本地开发
 
