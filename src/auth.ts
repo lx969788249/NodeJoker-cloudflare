@@ -49,7 +49,7 @@ export async function requireAdmin(c: any, next: Next): Promise<void> {
   const user = c.get('user') as AuthUser | null;
   if (!user || (user.id !== 'admin' && user.level < 9)) {
     c.status(403);
-    c.json({ message: '仅管理员可操作' });
+    return c.json({ message: '仅管理员可操作' });
     return;
   }
   await next();

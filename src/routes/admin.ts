@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { hashPassword } from '../crypto';
 import type { R2Bucket } from '@cloudflare/workers-types';
 import { authMiddleware, requireAdmin } from '../auth';
-import { listUsers, getUser, updateUser, deleteUser, deleteImagesByIds, getBranding, getBackupConfig, setSetting, listImagesByUser } from '../db';
-import { json, errorJson } from '../utils';
+import { listUsers, getUser, getUserByUsername, updateUser, deleteUser, deleteImagesByIds, getBranding, getBackupConfig, setSetting, listImagesByUser, createUser } from '../db';
+import { json, errorJson, generateApiKey, nanoid } from '../utils';
 import type { AuthUser, Env } from '../types';
 
 const adminRoutes = new Hono<{ Bindings: Env; Variables: { user: AuthUser } }>();
@@ -12,6 +12,23 @@ const adminRoutes = new Hono<{ Bindings: Env; Variables: { user: AuthUser } }>()
 adminRoutes.get('/admin/users', authMiddleware, requireAdmin, async (c) => {
   const users = await listUsers(c.env.DB);
   return json({ users: users.map((u) => ({ id: u.id, username: u.username, level: u.level || 1, createdAt: u.createdAt })) });
+});
+
+// POST /api/admin/users — 管理员创建用户
+adminRoutes.post('/admin/users', authMiddleware, requireAdmin, async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const username: string = (body.username || '').trim().slice(0, 30);
+  const password: string = body.password || '';
+  if (!username || !password) return errorJson('用户名和密码不能为空');
+
+  if (await getUserByUsername(c.env.DB, username)) return errorJson('用户名已存在');
+
+  const passwordHash = await hashPassword(password);
+  const apiKey = generateApiKey();
+  const newId = nanoid();
+  const level = Math.min(9, Math.max(1, Number(body.level) || 1));
+  await createUser(c.env.DB, { id: newId, username, passwordHash, apiKey, token: null, level, sessionVersion: 1, createdAt: Date.now() });
+  return json({ message: '用户已创建', user: { id: newId, username, level } });
 });
 
 // POST /api/admin/users/:id
