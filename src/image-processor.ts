@@ -1,4 +1,4 @@
-import { ready, inspect, decode, resize } from '@standardagents/sip';
+import { ready, decode, resize } from '@standardagents/sip';
 import type { R2Bucket } from '@cloudflare/workers-types';
 import { PhotonImage, draw_text_with_border } from '@cf-wasm/photon/workerd';
 import type { WatermarkConfig } from './db';
@@ -6,7 +6,7 @@ import type { WatermarkConfig } from './db';
 // @jsquash — lossy WebP via libwebp WASM (Cloudflare Workers 兼容)
 import encodeWebp, { init as initWebpEnc } from '@jsquash/webp/encode';
 // @ts-expect-error WASM binary import
-import WEBP_ENC_WASM from '@jsquash/webp/codec/enc/webp_enc_simd.wasm';
+import WEBP_ENC_WASM from '../node_modules/@jsquash/webp/codec/enc/webp_enc_simd.wasm';
 
 export interface ProcessOptions {
 	width?: number;
