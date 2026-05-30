@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import type { R2Bucket } from '@cloudflare/workers-types';
 import { authMiddleware } from '../auth';
 import { createImage, countTodayUploads, getCompressionConfig } from '../db';
-import { convertToJpeg } from '../image-processor';
+import { convertToWebp } from '../image-processor';
 import { nanoid, getTodayRange, getYearMonth, getBaseUrl, json, errorJson } from '../utils';
 import type { AuthUser, Env } from '../types';
 import type { ImageRecord } from '../db';
@@ -47,7 +47,7 @@ uploadRoutes.post('/upload', authMiddleware, async (c) => {
   const id = nanoid();
   const inputBuffer = new Uint8Array(await fileObj.arrayBuffer());
 
-  // 上传时用 SIP 转 JPEG — 流式处理，任意大小图片都行
+  // 上传时用 SIP + @jsquash 转 WebP — 流式处理，任意大小图片都行
   let finalBuffer: Uint8Array = inputBuffer;
   let finalMime = fileObj.type;
   let finalExt: string;
@@ -56,11 +56,11 @@ uploadRoutes.post('/upload', authMiddleware, async (c) => {
 
   if (!SKIP_JPEG_CONVERT.has(fileObj.type)) {
     const compConfig = await getCompressionConfig(db);
-    const result = await convertToJpeg(inputBuffer, compConfig.quality);
+    const result = await convertToWebp(inputBuffer, compConfig.quality);
     if (result) {
       finalBuffer = result.data;
-      finalMime = 'image/jpeg';
-      finalExt = 'jpg';
+      finalMime = 'image/webp';
+      finalExt = 'webp';
       finalSize = result.data.length;
       converted = true;
     } else {
