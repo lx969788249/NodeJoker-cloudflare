@@ -32,32 +32,44 @@ export class TarGzReader {
   }
 
   getFile(filename: string): Uint8Array | null {
-    if (!this.buffer) return null;
+    const entry = this.findEntry(filename);
+    return entry ? entry.data : null;
+  }
+
+  // 遍历 tar 中所有文件，回调返回 { name, data }
+  forEachFile(fn: (name: string, data: Uint8Array) => void): void {
+    if (!this.buffer) return;
     const buf = this.buffer;
     let pos = 0;
 
     while (pos + 512 <= buf.length) {
-      // 读 header 中的文件名（前 100 字节）
       const nameEnd = buf.indexOf(0, pos);
+      if (nameEnd === -1 || nameEnd > pos + 100) break;
       const name = new TextDecoder().decode(buf.slice(pos, nameEnd));
+      if (!name) break; // 空文件名 = 结束标记
 
-      // 读大小（offset 124-135, 12 字节八进制字符串）
       const sizeStr = new TextDecoder().decode(buf.slice(pos + 124, pos + 136)).replace(/\0/g, '').trim();
       const size = sizeStr ? parseInt(sizeStr, 8) : 0;
 
-      if (name === filename || name === './' + filename) {
-        // 文件数据：header 之后的下一个 512 对齐边界
-        const dataStart = pos + 512;
-        return buf.slice(dataStart, dataStart + size);
+      const dataStart = pos + 512;
+      const cleanName = name.startsWith('./') ? name.slice(2) : name;
+
+      if (size > 0 && dataStart + size <= buf.length) {
+        fn(cleanName, buf.slice(dataStart, dataStart + size));
       }
 
-      // 跳到下一个 header（data 向上取整到 512 的倍数）
       const dataBlocks = Math.ceil(size / 512);
       pos += 512 + dataBlocks * 512;
-
-      // 检查是否到达结束（连续两个 512 字节的 0）
       if (pos >= buf.length) break;
     }
-    return null;
+  }
+
+  private findEntry(filename: string): { data: Uint8Array } | null {
+    if (!this.buffer) return null;
+    let result: { data: Uint8Array } | null = null;
+    this.forEachFile((name, data) => {
+      if (name === filename || name === './' + filename) result = { data };
+    });
+    return result;
   }
 }

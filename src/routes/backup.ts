@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { R2Bucket } from '@cloudflare/workers-types';
 import { authMiddleware, requireAdmin } from '../auth';
 import { getBackupConfig } from '../db';
 import { json, errorJson } from '../utils';
@@ -38,7 +39,7 @@ backupRoutes.post('/backup/restore', authMiddleware, requireAdmin, async (c) => 
     const fname = (fileObj.name || '').toLowerCase();
 
     if (fname.endsWith('.tar.gz') || fname.endsWith('.tgz')) {
-      // 旧版 tar.gz 备份 → 提取 db.sqlite → 解析
+      // 旧版 tar.gz 备份 → 提取 db.sqlite + 上传图片到 R2
       const tarGzBuf = new Uint8Array(await fileObj.arrayBuffer());
       const reader = new TarGzReader();
       await reader.load(tarGzBuf);
@@ -52,6 +53,30 @@ backupRoutes.post('/backup/restore', authMiddleware, requireAdmin, async (c) => 
         images: raw.images.map(({ thumbName, ...rest }: Record<string, unknown>) => rest),
         settings: raw.settings,
       };
+
+      // 上传图片到 R2（批量，后台执行）
+      const bucket = c.env.IMAGES as R2Bucket;
+      const entries: { key: string; data: Uint8Array }[] = [];
+      reader.forEachFile((name, fileData) => {
+        if (name.startsWith('uploads/') && !name.includes('/thumbs/') && fileData.length > 0) {
+          const key = name.replace(/^uploads\//, '');
+          if (key) entries.push({ key, data: fileData });
+        }
+      });
+
+      c.executionCtx.waitUntil((async () => {
+        let count = 0;
+        const BATCH = 5;
+        for (let i = 0; i < entries.length; i += BATCH) {
+          const batch = entries.slice(i, i + BATCH);
+          await Promise.all(batch.map(({ key, data }) =>
+            bucket.put(key, data).then(() => { count++; }).catch(() => {})
+          ));
+        }
+        console.log(`Migration: uploaded ${count}/${entries.length} files to R2`);
+      })());
+
+      return json({ message: `数据库已恢复，${entries.length} 个图片文件正在上传到 R2` });
     } else {
       // JSON 备份
       const text = await fileObj.text();
