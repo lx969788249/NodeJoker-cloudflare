@@ -482,7 +482,7 @@ async function uploadFile(file) {
   showProgress('上传中...');
   try {
     const token = getToken();
-    const uploadHeaders: Record<string,string> = {};
+    const uploadHeaders = {};
     if (token) uploadHeaders['Authorization'] = `Bearer ${token}`;
     const res = await fetch('/api/upload', {
       method: 'POST',
@@ -702,7 +702,7 @@ function copyAllLinks(type, scope) {
 
 async function logoutUser() {
   const token = getToken();
-  const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+  const headers = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   await fetch('/api/auth/logout', { method: 'POST', headers });
   setToken(null);
@@ -1007,26 +1007,6 @@ function setupEventListeners() {
   });
   els.goHome?.addEventListener('click', () => switchView('main'));
 
-  els.compressToWebp.addEventListener('change', (e) => {
-    state.settings.compressToWebp = e.target.checked;
-    persistSettings();
-  });
-  els.webpQuality.addEventListener('input', (e) => {
-    state.settings.webpQuality = Number(e.target.value);
-    syncSettingsUi();
-    persistSettings();
-  });
-  els.autoWatermark.addEventListener('change', (e) => {
-    state.settings.autoWatermark = e.target.checked;
-    syncSettingsUi();
-    persistSettings();
-  });
-  if (els.watermarkContent) {
-    els.watermarkContent.addEventListener('input', (e) => {
-      state.settings.watermarkContent = e.target.value;
-      persistSettings();
-    });
-  }
   els.autoCopyLink.addEventListener('change', (e) => {
     state.settings.autoCopyLink = e.target.checked;
     persistSettings();
@@ -1626,9 +1606,6 @@ function applyBrandingFromInputs() {
 
 function setSettingsEnabled(isAuth) {
   const inputs = [
-    els.compressToWebp,
-    els.webpQuality,
-    els.autoWatermark,
     els.autoCopyLink,
     els.autoDelete,
     els.deleteDays,
