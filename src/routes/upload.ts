@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
 import type { R2Bucket } from '@cloudflare/workers-types';
+import { PhotonImage } from '@cf-wasm/photon/workerd';
 import { authMiddleware } from '../auth';
-import { createImage, countTodayUploads } from '../db';
+import { createImage, countTodayUploads, getCompressionConfig } from '../db';
 import { nanoid, getTodayRange, getYearMonth, getBaseUrl, json, errorJson } from '../utils';
 import type { AuthUser, Env } from '../types';
 import type { ImageRecord } from '../db';
@@ -14,6 +15,9 @@ const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
   'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/avif',
 ]);
+
+// 不需要转 WebP 的格式 (WebP 本身、GIF 保留动画)
+const SKIP_WEBP_CONVERT = new Set(['image/gif', 'image/webp', 'image/avif']);
 
 uploadRoutes.post('/upload', authMiddleware, async (c) => {
   const user = c.get('user');
@@ -40,24 +44,50 @@ uploadRoutes.post('/upload', authMiddleware, async (c) => {
 
   const { year, month } = getYearMonth();
   const id = nanoid();
-  // 使用 lastIndexOf 替代 split().pop() 避免创建临时数组
-  const dotIdx = fileObj.name.lastIndexOf('.');
-  const ext = dotIdx > 0 ? fileObj.name.slice(dotIdx + 1).toLowerCase() || 'png' : 'png';
-  const filename = `${year}/${month}/${id}.${ext}`;
+  const inputBuffer = await fileObj.arrayBuffer();
 
-  const buffer = await fileObj.arrayBuffer();
-  await bucket.put(filename, buffer, { httpMetadata: { contentType: fileObj.type } });
+  // 上传时转 WebP (JPEG/PNG → WebP)
+  let finalBuffer: ArrayBuffer | Uint8Array = inputBuffer;
+  let finalMime = fileObj.type;
+  let finalExt: string;
+  let finalSize = fileObj.size;
+
+  if (!SKIP_WEBP_CONVERT.has(fileObj.type)) {
+    try {
+      const compConfig = await getCompressionConfig(db);
+      const image = PhotonImage.new_from_byteslice(new Uint8Array(inputBuffer));
+      try {
+        const webpBytes = image.get_bytes_webp();
+        finalBuffer = webpBytes;
+        finalMime = 'image/webp';
+        finalExt = 'webp';
+        finalSize = webpBytes.length;
+      } finally {
+        image.free();
+      }
+    } catch {
+      // 转换失败 → 退回原格式
+      const dotIdx = fileObj.name.lastIndexOf('.');
+      finalExt = dotIdx > 0 ? fileObj.name.slice(dotIdx + 1).toLowerCase() || 'png' : 'png';
+    }
+  } else {
+    const dotIdx = fileObj.name.lastIndexOf('.');
+    finalExt = dotIdx > 0 ? fileObj.name.slice(dotIdx + 1).toLowerCase() || 'png' : 'png';
+  }
+
+  const filename = `${year}/${month}/${id}.${finalExt}`;
+  await bucket.put(filename, finalBuffer, { httpMetadata: { contentType: finalMime } });
 
   const record: ImageRecord = {
-    id, userId: user.id, filename, mime: fileObj.type,
-    size: fileObj.size, width: null, height: null,
+    id, userId: user.id, filename, mime: finalMime,
+    size: finalSize, width: null, height: null,
     createdAt: Date.now(), autoDelete: autoDelete ? 1 : 0, deleteAfterDays: deleteDays,
   };
   await createImage(db, record);
 
   const baseUrl = getBaseUrl(c.req.raw);
   const fileUrl = `${baseUrl}/uploads/${filename}`;
-  return json({ id, url: fileUrl, size: fileObj.size, format: ext, markdown: `![image](${fileUrl})`, html: `<img src="${fileUrl}" alt="image" />`, bbcode: `[img]${fileUrl}[/img]` });
+  return json({ id, url: fileUrl, size: finalSize, format: finalExt, markdown: `![image](${fileUrl})`, html: `<img src="${fileUrl}" alt="image" />`, bbcode: `[img]${fileUrl}[/img]` });
 });
 
 export default uploadRoutes;
