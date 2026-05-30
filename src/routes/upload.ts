@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import type { R2Bucket } from '@cloudflare/workers-types';
-import { PhotonImage } from '@cf-wasm/photon/workerd';
+import { PhotonImage, resize, SamplingFilter } from '@cf-wasm/photon/workerd';
 import { authMiddleware } from '../auth';
 import { createImage, countTodayUploads, getCompressionConfig } from '../db';
 import { nanoid, getTodayRange, getYearMonth, getBaseUrl, json, errorJson } from '../utils';
@@ -55,15 +55,25 @@ uploadRoutes.post('/upload', authMiddleware, async (c) => {
   if (!SKIP_JPEG_CONVERT.has(fileObj.type)) {
     try {
       const compConfig = await getCompressionConfig(db);
-      const image = PhotonImage.new_from_byteslice(new Uint8Array(inputBuffer));
+      let image: PhotonImage | null = PhotonImage.new_from_byteslice(new Uint8Array(inputBuffer));
       try {
+        // 超大图先缩放到安全尺寸 (降低内存，避免 OOM)
+        const MAX_UPLOAD_DIM = 4000;
+        if (image.get_width() > MAX_UPLOAD_DIM || image.get_height() > MAX_UPLOAD_DIM) {
+          const ratio = Math.min(MAX_UPLOAD_DIM / image.get_width(), MAX_UPLOAD_DIM / image.get_height());
+          const tw = Math.round(image.get_width() * ratio);
+          const th = Math.round(image.get_height() * ratio);
+          const resized = resize(image, tw, th, SamplingFilter.Lanczos3);
+          image.free();
+          image = resized;
+        }
         const jpegBytes = image.get_bytes_jpeg(compConfig.quality);
         finalBuffer = jpegBytes;
         finalMime = 'image/jpeg';
         finalExt = 'jpg';
         finalSize = jpegBytes.length;
       } finally {
-        image.free();
+        if (image) image.free();
       }
     } catch {
       // 转换失败 → 退回原格式
