@@ -77,11 +77,19 @@ app.get('/uploads/*', async (c) => {
   }
 
   // 有参数 → Photon 处理
+  const toInt = (v: string | undefined): number | undefined => {
+    if (!v) return undefined;
+    const n = parseInt(v);
+    return Number.isNaN(n) ? undefined : n;
+  };
+  const rawW = toInt(q.w);
+  const rawH = toInt(q.h);
+  const rawQ = toInt(q.q);
   const opts = {
-    width: q.w ? Math.min(4000, Math.max(1, parseInt(q.w) || 0)) : undefined,
-    height: q.h ? Math.min(4000, Math.max(1, parseInt(q.h) || 0)) : undefined,
+    width: rawW ? Math.min(4000, Math.max(1, rawW)) : undefined,
+    height: rawH ? Math.min(4000, Math.max(1, rawH)) : undefined,
     format: (['webp', 'jpeg', 'png'].includes(q.f) ? q.f : undefined) as 'webp' | 'jpeg' | 'png' | undefined,
-    quality: q.q ? Math.min(100, Math.max(1, parseInt(q.q) || 85)) : undefined,
+    quality: rawQ ? Math.min(100, Math.max(1, rawQ)) : undefined,
     watermark: q.wm === '1',
   };
 
