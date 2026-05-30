@@ -1,78 +1,84 @@
-import { PhotonImage, resize, draw_text_with_border, SamplingFilter } from '@cf-wasm/photon/workerd';
+import { ready, inspect, transform, collect } from '@standardagents/sip';
 import type { R2Bucket } from '@cloudflare/workers-types';
+import { PhotonImage, draw_text_with_border } from '@cf-wasm/photon/workerd';
 import type { WatermarkConfig } from './db';
 
 export interface ProcessOptions {
 	width?: number;
 	height?: number;
-	format?: 'webp' | 'jpeg' | 'png';
 	quality?: number;
 	watermark?: boolean;
 }
 
 const DEFAULT_QUALITY = 85;
-const MAX_DIMENSION = 4000;
+let sipReady = false;
+async function ensureReady() {
+	if (!sipReady) { await ready(); sipReady = true; }
+}
 
-/** 从 R2 取原图 → Photon 处理 → 返回字节 */
-export async function processImage(
+/** 上传时用 SIP 转 JPEG — 任意大小图片都行，内存 ~50KB */
+export async function convertToJpeg(
+	inputBytes: Uint8Array,
+	quality: number,
+): Promise<{ data: Uint8Array; width: number; height: number } | null> {
+	try {
+		await ensureReady();
+		const { source } = await inspect(inputBytes);
+		const encoded = transform(source, { quality });
+		const { data, info } = await collect(encoded);
+		const imgInfo = await info;
+		return { data: new Uint8Array(data), width: imgInfo.width, height: imgInfo.height };
+	} catch {
+		return null;
+	}
+}
+
+/** 服务端缩放 — SIP 流式处理，支持 ?w= ?h= ?q= */
+export async function resizeImage(
 	bucket: R2Bucket,
 	key: string,
 	opts: ProcessOptions,
-	wmConfig: WatermarkConfig | null,
 ): Promise<{ body: Uint8Array; contentType: string } | null> {
 	const object = await bucket.get(key);
 	if (!object) return null;
 
-	const inputBytes = new Uint8Array(await object.arrayBuffer());
-	let image: PhotonImage;
-
 	try {
-		image = PhotonImage.new_from_byteslice(inputBytes);
+		await ensureReady();
+		const inputBytes = new Uint8Array(await object.arrayBuffer());
+		const { source } = await inspect(inputBytes);
+		const encoded = transform(source, {
+			width: opts.width,
+			height: opts.height,
+			quality: opts.quality ?? DEFAULT_QUALITY,
+		});
+		const { data } = await collect(encoded);
+		return { body: new Uint8Array(data), contentType: 'image/jpeg' };
 	} catch {
 		return null;
 	}
+}
 
+/** 服务端缩放 + 文字水印 — SIP 缩放后 Photon 加文字 */
+export async function resizeWithWatermark(
+	bucket: R2Bucket,
+	key: string,
+	opts: ProcessOptions,
+	wmConfig: WatermarkConfig,
+): Promise<{ body: Uint8Array; contentType: string } | null> {
+	// 1. SIP 缩放
+	const resized = await resizeImage(bucket, key, opts);
+	if (!resized) return null;
+
+	// 2. Photon 加文字水印 (此时图片已缩放，内存安全)
 	try {
-		// 超大图保护
-		if (image.get_width() > 6000 || image.get_height() > 6000) {
-			image.free();
-			return null;
-		}
-
-		// --- 缩放 ---
-		if (opts.width || opts.height) {
-			const srcW = image.get_width();
-			const srcH = image.get_height();
-
-			let targetW: number, targetH: number;
-			if (opts.width && opts.height) {
-				targetW = Math.min(opts.width, MAX_DIMENSION);
-				targetH = Math.min(opts.height, MAX_DIMENSION);
-			} else if (opts.width) {
-				targetW = Math.min(opts.width, MAX_DIMENSION);
-				targetH = Math.round(srcH * (targetW / srcW));
-			} else {
-				targetH = Math.min(opts.height!, MAX_DIMENSION);
-				targetW = Math.round(srcW * (targetH / srcH));
-			}
-
-			if (targetW !== srcW || targetH !== srcH) {
-				const resized = resize(image, targetW, targetH, SamplingFilter.Lanczos3);
-				image.free();
-				image = resized;
-			}
-		}
-
-		// --- 文字水印 ---
-		if (opts.watermark && wmConfig?.enabled && wmConfig.text) {
+		const image = PhotonImage.new_from_byteslice(resized.body);
+		try {
 			const fs = Math.min(200, Math.max(8, wmConfig.fontSize || 24));
-			// 根据位置计算文字坐标
-			const padding = 20;
 			const imgW = image.get_width();
 			const imgH = image.get_height();
-			// 估算文字宽度: 每个字符约 font_size * 0.6
 			const textW = Math.floor(wmConfig.text.length * fs * 0.6);
 			const textH = fs;
+			const padding = 20;
 
 			let x: number, y: number;
 			switch (wmConfig.position) {
@@ -84,30 +90,13 @@ export async function processImage(
 			}
 
 			draw_text_with_border(image, wmConfig.text, x, y, fs);
+			const outputBytes = image.get_bytes_jpeg(opts.quality ?? DEFAULT_QUALITY);
+			return { body: outputBytes, contentType: 'image/jpeg' };
+		} finally {
+			image.free();
 		}
-
-		// --- 编码输出 ---
-		const fmt = opts.format ?? 'jpeg';
-		let outputBytes: Uint8Array;
-		let contentType: string;
-		switch (fmt) {
-			case 'jpeg':
-				outputBytes = image.get_bytes_jpeg(opts.quality ?? DEFAULT_QUALITY);
-				contentType = 'image/jpeg';
-				break;
-			case 'png':
-				outputBytes = image.get_bytes();
-				contentType = 'image/png';
-				break;
-			case 'webp':
-			default:
-				outputBytes = image.get_bytes_webp();
-				contentType = 'image/webp';
-				break;
-		}
-
-		return { body: outputBytes, contentType };
-	} finally {
-		image.free();
+	} catch {
+		// 加水印失败 → 返回缩放后的图
+		return resized;
 	}
 }

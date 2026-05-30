@@ -8,7 +8,7 @@ import adminRoutes from './routes/admin';
 import backupRoutes from './routes/backup';
 import { json, getTodayRange } from './utils';
 import { getWatermarkConfig, getCompressionConfig } from './db';
-import { processImage } from './image-processor';
+import { resizeImage, resizeWithWatermark } from './image-processor';
 import type { Env, AuthUser } from './types';
 
 const app = new Hono<{ Bindings: Env; Variables: { user: AuthUser | null } }>();
@@ -60,13 +60,12 @@ app.get('/uploads/*', async (c) => {
   const bucket = c.env.IMAGES as R2Bucket;
   const key = c.req.path.replace(/^\/uploads\//, '');
 
-  // 拒绝访问系统文件
   if (key.startsWith('_system/')) return c.notFound();
 
   const q = c.req.query();
 
   // 无参数 → 原图直出（快速路径）
-  if (!q.w && !q.h && !q.f && !q.wm) {
+  if (!q.w && !q.h && !q.wm) {
     const object = await bucket.get(key);
     if (!object) return c.notFound();
     const headers = new Headers();
@@ -76,7 +75,7 @@ app.get('/uploads/*', async (c) => {
     return new Response(object.body, { headers });
   }
 
-  // 有参数 → Photon 处理
+  // 解析参数
   const toInt = (v: string | undefined): number | undefined => {
     if (!v) return undefined;
     const n = parseInt(v);
@@ -85,17 +84,33 @@ app.get('/uploads/*', async (c) => {
   const rawW = toInt(q.w);
   const rawH = toInt(q.h);
   const rawQ = toInt(q.q);
-  const wmConfig = await getWatermarkConfig(c.env.DB);
+
   const compConfig = await getCompressionConfig(c.env.DB);
   const opts = {
     width: rawW ? Math.min(4000, Math.max(1, rawW)) : undefined,
     height: rawH ? Math.min(4000, Math.max(1, rawH)) : undefined,
-    format: (['webp', 'jpeg', 'png'].includes(q.f) ? q.f : undefined) as 'webp' | 'jpeg' | 'png' | undefined,
     quality: rawQ ? Math.min(100, Math.max(1, rawQ)) : compConfig.quality,
     watermark: q.wm === '1',
   };
 
-  const result = await processImage(bucket, key, opts, wmConfig);
+  // 水印 → SIP 缩放 + Photon 文字
+  if (opts.watermark) {
+    const wmConfig = await getWatermarkConfig(c.env.DB);
+    if (wmConfig.enabled) {
+      const result = await resizeWithWatermark(bucket, key, opts, wmConfig);
+      if (result) {
+        const headers = new Headers();
+        headers.set('Content-Type', result.contentType);
+        headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+        headers.set('Access-Control-Allow-Origin', '*');
+        return new Response(result.body, { headers });
+      }
+    }
+    // 水印关闭或失败 → 继续走纯缩放
+  }
+
+  // SIP 缩放
+  const result = await resizeImage(bucket, key, opts);
   if (!result) return c.notFound();
 
   const headers = new Headers();

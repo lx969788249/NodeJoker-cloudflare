@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import type { R2Bucket } from '@cloudflare/workers-types';
-import { PhotonImage, resize, SamplingFilter } from '@cf-wasm/photon/workerd';
 import { authMiddleware } from '../auth';
 import { createImage, countTodayUploads, getCompressionConfig } from '../db';
+import { convertToJpeg } from '../image-processor';
 import { nanoid, getTodayRange, getYearMonth, getBaseUrl, json, errorJson } from '../utils';
 import type { AuthUser, Env } from '../types';
 import type { ImageRecord } from '../db';
@@ -18,8 +18,6 @@ const ALLOWED_MIME = new Set([
 
 // 不需要转 JPEG 的格式 (GIF 保留动画, AVIF 本身已现代)
 const SKIP_JPEG_CONVERT = new Set(['image/gif', 'image/avif']);
-// 超过此大小的文件跳过 Photon 转换 (高分辨率图片解码后可能 OOM)
-const MAX_CONVERT_SIZE = 2 * 1024 * 1024; // 2MB
 
 uploadRoutes.post('/upload', authMiddleware, async (c) => {
   const user = c.get('user');
@@ -46,39 +44,25 @@ uploadRoutes.post('/upload', authMiddleware, async (c) => {
 
   const { year, month } = getYearMonth();
   const id = nanoid();
-  const inputBuffer = await fileObj.arrayBuffer();
+  const inputBuffer = new Uint8Array(await fileObj.arrayBuffer());
 
-  // 上传时转 JPEG (大幅减小体积，>2MB 文件跳过以免 OOM)
-  let finalBuffer: ArrayBuffer | Uint8Array = inputBuffer;
+  // 上传时用 SIP 转 JPEG — 流式处理，任意大小图片都行
+  let finalBuffer: Uint8Array = inputBuffer;
   let finalMime = fileObj.type;
   let finalExt: string;
   let finalSize = fileObj.size;
   let converted = false;
 
-  if (!SKIP_JPEG_CONVERT.has(fileObj.type) && fileObj.size <= MAX_CONVERT_SIZE) {
-    try {
-      const compConfig = await getCompressionConfig(db);
-      let image: PhotonImage | null = PhotonImage.new_from_byteslice(new Uint8Array(inputBuffer));
-      try {
-        const MAX_UPLOAD_DIM = 4000;
-        if (image.get_width() > MAX_UPLOAD_DIM || image.get_height() > MAX_UPLOAD_DIM) {
-          const ratio = Math.min(MAX_UPLOAD_DIM / image.get_width(), MAX_UPLOAD_DIM / image.get_height());
-          const tw = Math.round(image.get_width() * ratio);
-          const th = Math.round(image.get_height() * ratio);
-          const resized = resize(image, tw, th, SamplingFilter.Lanczos3);
-          image.free();
-          image = resized;
-        }
-        const jpegBytes = image.get_bytes_jpeg(compConfig.quality);
-        finalBuffer = jpegBytes;
-        finalMime = 'image/jpeg';
-        finalExt = 'jpg';
-        finalSize = jpegBytes.length;
-        converted = true;
-      } finally {
-        if (image) image.free();
-      }
-    } catch {
+  if (!SKIP_JPEG_CONVERT.has(fileObj.type)) {
+    const compConfig = await getCompressionConfig(db);
+    const result = await convertToJpeg(inputBuffer, compConfig.quality);
+    if (result) {
+      finalBuffer = result.data;
+      finalMime = 'image/jpeg';
+      finalExt = 'jpg';
+      finalSize = result.data.length;
+      converted = true;
+    } else {
       // 转换失败 → 退回原格式
       const dotIdx = fileObj.name.lastIndexOf('.');
       finalExt = dotIdx > 0 ? fileObj.name.slice(dotIdx + 1).toLowerCase() || 'png' : 'png';
