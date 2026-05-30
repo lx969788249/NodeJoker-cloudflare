@@ -1,14 +1,11 @@
-import { ready, inspect, transform, collect } from '@standardagents/sip';
+import { ready, inspect, decode, resize } from '@standardagents/sip';
 import type { R2Bucket } from '@cloudflare/workers-types';
 import { PhotonImage, draw_text_with_border } from '@cf-wasm/photon/workerd';
 import type { WatermarkConfig } from './db';
 
-// @jsquash — lossy WebP encoding for Cloudflare Workers
-import decodeJpeg, { init as initJpegDec } from '@jsquash/jpeg/decode';
+// @jsquash — lossy WebP via libwebp WASM (Cloudflare Workers 兼容)
 import encodeWebp, { init as initWebpEnc } from '@jsquash/webp/encode';
-// @ts-expect-error WASM binary imports
-import JPEG_DEC_WASM from '@jsquash/jpeg/codec/dec/mozjpeg_dec.wasm';
-// @ts-expect-error WASM binary imports
+// @ts-expect-error WASM binary import
 import WEBP_ENC_WASM from '@jsquash/webp/codec/enc/webp_enc_simd.wasm';
 
 export interface ProcessOptions {
@@ -19,49 +16,67 @@ export interface ProcessOptions {
 }
 
 const DEFAULT_QUALITY = 80;
+const MAX_DIM = 4000;
 
-// --- WASM init (once per isolate) ---
+// Workers 无 DOM ImageData 类型，用等价结构
+interface PixelData { data: Uint8ClampedArray; width: number; height: number }
+
 let _ready = false;
 async function ensureReady() {
 	if (_ready) return;
-	await Promise.all([
-		ready(),
-		initJpegDec(JPEG_DEC_WASM),
-		initWebpEnc(WEBP_ENC_WASM),
-	]);
+	await Promise.all([ready(), initWebpEnc(WEBP_ENC_WASM)]);
 	_ready = true;
 }
 
-/** 上传：SIP 缩放 + @jsquash 有损 WebP 编码 */
+/** SIP PixelStream → RGBA ImageData */
+async function collectImageData(
+	stream: AsyncIterable<{ data: Uint8Array; width: number; y: number }>,
+	imgWidth: number,
+	imgHeight: number,
+): Promise<PixelData> {
+	const rgba = new Uint8ClampedArray(imgWidth * imgHeight * 4);
+	for await (const row of stream) {
+		const offset = row.y * imgWidth * 4;
+		for (let x = 0; x < row.width; x++) {
+			const src = x * 3;
+			const dst = offset + x * 4;
+			rgba[dst] = row.data[src];       // R
+			rgba[dst + 1] = row.data[src + 1]; // G
+			rgba[dst + 2] = row.data[src + 2]; // B
+			rgba[dst + 3] = 255;               // A
+		}
+	}
+	return { data: rgba, width: imgWidth, height: imgHeight };
+}
+
+/** 上传：SIP decode+resize → RGBA → @jsquash 有损 WebP */
 export async function convertToWebp(
 	inputBytes: Uint8Array,
 	quality: number,
 ): Promise<{ data: Uint8Array; width: number; height: number } | null> {
 	try {
 		await ensureReady();
+		let stream = decode(inputBytes);
+		const info = await stream.info;
+		let w = info.width, h = info.height;
 
-		// SIP 流式解码+缩放 → JPEG (内存安全，任意大小)
-		const { source } = await inspect(inputBytes);
-		const encoded = transform(source, { quality: 92 }); // 高质量中间 JPEG
-		const { data: jpegBytes, info } = await collect(encoded);
-		const imgInfo = await info;
+		// 超大图先缩放
+		if (w > MAX_DIM || h > MAX_DIM) {
+			const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+			w = Math.round(w * ratio);
+			h = Math.round(h * ratio);
+			stream = resize(stream, { width: w, height: h });
+		}
 
-		// @jsquash JPEG 解码 → ImageData
-		const imageData = await decodeJpeg(jpegBytes);
-
-		// @jsquash WebP 有损编码（质量可控！）
+		const imageData = await collectImageData(stream, w, h);
 		const webpBytes = await encodeWebp(imageData, { quality });
-		return {
-			data: new Uint8Array(webpBytes),
-			width: imgInfo.width,
-			height: imgInfo.height,
-		};
+		return { data: new Uint8Array(webpBytes), width: w, height: h };
 	} catch {
 		return null;
 	}
 }
 
-/** 服务端缩放 → WebP (SIP + @jsquash) */
+/** 服务端缩放 → WebP */
 export async function resizeImage(
 	bucket: R2Bucket,
 	key: string,
@@ -73,18 +88,17 @@ export async function resizeImage(
 	try {
 		await ensureReady();
 		const inputBytes = new Uint8Array(await object.arrayBuffer());
+		let stream = decode(inputBytes);
+		const info = await stream.info;
+		let w = info.width, h = info.height;
 
-		// SIP 流式缩放 → JPEG
-		const { source } = await inspect(inputBytes);
-		const encoded = transform(source, {
-			width: opts.width,
-			height: opts.height,
-			quality: 92,
-		});
-		const { data: jpegBytes } = await collect(encoded);
+		if (opts.width || opts.height) {
+			w = opts.width ?? Math.round(info.width * (opts.height! / info.height));
+			h = opts.height ?? Math.round(info.height * (opts.width! / info.width));
+			stream = resize(stream, { width: w, height: h });
+		}
 
-		// @jsquash JPEG → WebP
-		const imageData = await decodeJpeg(jpegBytes);
+		const imageData = await collectImageData(stream, w, h);
 		const webpBytes = await encodeWebp(imageData, { quality: opts.quality ?? DEFAULT_QUALITY });
 		return { body: new Uint8Array(webpBytes), contentType: 'image/webp' };
 	} catch {
@@ -99,10 +113,11 @@ export async function resizeWithWatermark(
 	opts: ProcessOptions,
 	wmConfig: WatermarkConfig,
 ): Promise<{ body: Uint8Array; contentType: string } | null> {
+	// 1. SIP + jsquash → WebP
 	const resized = await resizeImage(bucket, key, opts);
 	if (!resized) return null;
 
-	// Photon 加水印 (图片已缩放，内存安全)
+	// 2. Photon 加水印 (此时图片已缩放，内存安全)
 	try {
 		const image = PhotonImage.new_from_byteslice(resized.body);
 		try {
@@ -122,7 +137,7 @@ export async function resizeWithWatermark(
 			}
 
 			draw_text_with_border(image, wmConfig.text, x, y, fs);
-			const out = image.get_bytes_webp();
+			const out = image.get_bytes_webp(); // 小图上无损 WebP 也很小
 			return { body: out, contentType: 'image/webp' };
 		} finally {
 			image.free();
