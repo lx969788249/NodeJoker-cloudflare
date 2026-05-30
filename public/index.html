@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nodeimage 克隆版</title>
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/notification.css">
+  <link rel="stylesheet" href="/assets/css/custom.css">
+</head>
+<body>
+  <ul class="notification-container" id="notificationContainer"></ul>
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="nav-left">
+        <h1 class="nav-title" id="goHome">
+          <img id="brandLogo" data-default="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAACgBAMAAAB54XoeAAAAAXNSR0IArs4c6QAAAAlwSFlzAAASdAAAEnQB3mYfeAAAAA9QTFRFR3BM////M7L/d3d3AAAApK3DWgAAAAF0Uk5TAEDm2GYAAAGESURBVHja7dpBasQwDIVh4xsY5gBG4xOUuUA17/5nKrRTlEAiavt1SIj+jXYfciBZmKSTJUPROIvlWZUNisORxCyzOR7jMQoh0oJWZYOSLKFUSQtatiAf5J4580HymeW4YP0fMB8YlJOAEuBMNcAAAzw4iFckELAIYMMqnQLNs3QQNM8TfdD3rI8JEJuNgw9spqPgHTuNgtjrOQY27DYGPmB93lZTR8D70ivltpwYAdsaLMsJHQBhPUspBTaBZz/YXBCjoJ243GwC0G4QbwbRC7a3g9oJ4vwg+sAGPui8KdMgfiEaaF8bA7ULhLXxPZwHUYpNCmgFGOChQAlwFtTrgXI5UNmgkEE9PChkUNmgkEFlg0IGlQ0KGRQyqGRQhQuqcEERLihcUIULigQYYIABBhhggAFeB0wXBXOAE2BN310JTD/lw4I1vaKDmQQmMlj9P3VbN5is/FdQfdBigDX5K2Izb8FVE6B57oqt/4LFF/uvlHyxAV0rpo18zxfTZtn1LPe8XwEcnwijZxw9AAAAAElFTkSuQmCC" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAACgBAMAAAB54XoeAAAAAXNSR0IArs4c6QAAAAlwSFlzAAASdAAAEnQB3mYfeAAAAA9QTFRFR3BM////M7L/d3d3AAAApK3DWgAAAAF0Uk5TAEDm2GYAAAGESURBVHja7dpBasQwDIVh4xsY5gBG4xOUuUA17/5nKrRTlEAiavt1SIj+jXYfciBZmKSTJUPROIvlWZUNisORxCyzOR7jMQoh0oJWZYOSLKFUSQtatiAf5J4580HymeW4YP0fMB8YlJOAEuBMNcAAAzw4iFckELAIYMMqnQLNs3QQNM8TfdD3rI8JEJuNgw9spqPgHTuNgtjrOQY27DYGPmB93lZTR8D70ivltpwYAdsaLMsJHQBhPUspBTaBZz/YXBCjoJ243GwC0G4QbwbRC7a3g9oJ4vwg+sAGPui8KdMgfiEaaF8bA7ULhLXxPZwHUYpNCmgFGOChQAlwFtTrgXI5UNmgkEE9PChkUNmgkEFlg0IGlQ0KGRQyqGRQhQuqcEERLihcUIULigQYYIABBhhggAFeB0wXBXOAE2BN310JTD/lw4I1vaKDmQQmMlj9P3VbN5is/FdQfdBigDX5K2Izb8FVE6B57oqt/4LFF/uvlHyxAV0rpo18zxfTZtn1LPe8XwEcnwijZxw9AAAAAElFTkSuQmCC" alt="Nodeimage Logo" style="height: 1.5em;vertical-align: middle;">
+          <span id="brandName">Nodeimage</span>
+        </h1>
+        <span class="nav-subtitle" id="brandSubtitle">NodeSeek专用图床·克隆版</span>
+      </div>
+      <div class="nav-right">
+        <div class="nav-toggle-container">
+          <button class="tailwind-btn" id="backBtn" style="display: none;">返回</button>
+          <button class="tailwind-btn" id="backBtn2" style="display: none;">返回</button>
+          <button class="tailwind-btn" id="apiBtn">API</button>
+          <button class="tailwind-btn" id="historyBtn">历史 <span id="totalImages">0</span></button>
+          <button class="tailwind-btn" id="settingsNavBtn">设置</button>
+        </div>
+        <div class="user-auth-section">
+          <div class="user-controls" id="userControls" style="display: none;">
+            <div class="user-menu-container">
+              <div class="tailwind-btn" id="userInfo" style="cursor: pointer;">
+                <span class="username" id="username">用户名</span>
+                <svg class="dropdown-arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="12" height="12">
+                  <path fill="currentColor" d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>
+                </svg>
+              </div>
+              <div class="user-menu" id="userMenu" style="display: none;">
+                <button class="tailwind-btn user-menu-item" id="changePasswordBtn">修改账号密码</button>
+                <button class="tailwind-btn user-menu-item logout-btn" id="logoutBtn">注销</button>
+              </div>
+            </div>
+            <button class="tailwind-btn" id="adminPanelBtn" style="display:none;">管理</button>
+          </div>
+          <button class="auth-btn" id="openAuthBtn">登录</button>
+        </div>
+        <button class="tailwind-btn" id="themeToggleBtn">
+          <svg class="theme-icon sun-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="16" height="16">
+            <path fill="currentColor" d="M361.5 1.2c5 2.1 8.6 6.6 9.6 11.9L391 121l107.9 19.8c5.3 1 9.8 4.6 11.9 9.6s1.5 10.7-1.6 15.2L446.9 256l62.3 90.3c3.1 4.5 3.7 10.2 1.6 15.2s-6.6 8.6-11.9 9.6L391 391 371.1 498.9c-1 5.3-4.6 9.8-9.6 11.9s-10.7 1.5-15.2-1.6L256 446.9l-90.3 62.3c-4.5 3.1-10.2 3.7-15.2 1.6s-8.6-6.6-9.6-11.9L121 391 13.1 371.1c-5.3-1-9.8-4.6-11.9-9.6s-1.5-10.7 1.6-15.2L65.1 256 2.8 165.7c-3.1-4.5-3.7-10.2-1.6-15.2s6.6-8.6 11.9-9.6L121 121 140.9 13.1c1-5.3 4.6-9.8 9.6-11.9s10.7-1.5 15.2 1.6L256 65.1 346.3 2.8c4.5-3.1 10.2-3.7 15.2-1.6zM160 256a96 96 0 1 1 192 0 96 96 0 1 1 -192 0zm224 0a128 128 0 1 0 -256 0 128 128 0 1 0 256 0z"/>
+          </svg>
+          <svg class="theme-icon moon-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" width="16" height="16" style="display:none">
+            <path fill="currentColor" d="M223.5 32C100 32 0 132.3 0 256S100 480 223.5 480c60.6 0 115.5-24.2 155.8-63.4c5-4.9 6.3-12.5 3.1-18.7s-10.1-9.7-17-8.5c-9.8 1.7-19.8 2.6-30.1 2.6c-96.9 0-175.5-78.8-175.5-176c0-65.8 36-123.1 89.3-153.3c6.1-3.5 9.2-10.5 7.7-17.3s-7.3-11.9-14.3-12.5c-6.3-.5-12.6-.8-19-.8z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <main class="main" id="mainView">
+      <div class="flip-card">
+        <div class="flip-card-inner">
+          <div class="upload-area" id="uploadArea">
+            <div class="upload-content">
+              <div class="folder-container">
+                <div class="folder">
+                  <div class="front-side">
+                    <div class="tip"></div>
+                    <div class="cover"></div>
+                  </div>
+                  <div class="back-side cover"></div>
+                </div>
+              </div>
+              <h3>点击或拖拽上传图片</h3>
+              <p>支持 JPG、JPEG、PNG、GIF、WebP、AVIF 等格式，最大 100MB</p>
+              <p class="paste-hint">💡 你也可以直接 <kbd>Ctrl+V</kbd> 粘贴剪贴板中的图片</p>
+              <input type="file" id="fileInput" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp,image/avif" multiple style="display:none;">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="copy-all-bar" id="resultCopyAllBar" style="display: none;">
+        <div class="copy-all-group">
+          <button class="copy-pill pill-direct" id="copyAllDirectBtn">复制全部直链</button>
+          <button class="copy-pill pill-html" id="copyAllHtmlBtn">复制全部 HTML</button>
+          <button class="copy-pill pill-md" id="copyAllMdBtn">复制全部 Markdown</button>
+          <button class="copy-pill pill-bb" id="copyAllBbBtn">复制全部 BB</button>
+        </div>
+      </div>
+      <div class="result-container" id="resultContainer" style="display: none;"></div>
+
+      <div class="history-view" id="historyView" style="display: none;">
+        <div class="recent-images" id="recentImages">
+          <div class="history-header">
+            <h3>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512">
+                <path d="M160 32c-35.3 0-64 28.7-64 64l0 224c0 35.3 28.7 64 64 64l352 0c35.3 0 64-28.7 64-64l0-224c0-35.3-28.7-64-64-64L160 32zM396 138.7l96 144c4.9 7.4 5.4 16.8 1.2 24.6S480.9 320 472 320l-144 0-48 0-80 0c-9.2 0-17.6-5.3-21.6-13.6s-2.9-18.2 2.9-25.4l64-80c4.6-5.7 11.4-9 18.7-9s14.2 3.3 18.7 9l17.3 21.6 56-84C360.5 132 368 128 376 128s15.5 4 20 10.7zM192 128a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zM48 120c0-13.3-10.7-24-24-24S0 106.7 0 120L0 344c0 75.1 60.9 136 136 136l320 0c13.3 0 24-10.7 24-24s-10.7-24-24-24l-320 0c-48.6 0-88-39.4-88-88l0-224z" />
+              </svg>
+              历史上传
+            </h3>
+            <div class="copy-all-bar" id="historyCopyAllBar" style="display: none;">
+              <div class="copy-all-group">
+                <button class="copy-pill pill-direct" id="historyCopyAllDirectBtn">复制全部直链</button>
+                <button class="copy-pill pill-html" id="historyCopyAllHtmlBtn">复制全部 HTML</button>
+                <button class="copy-pill pill-md" id="historyCopyAllMdBtn">复制全部 Markdown</button>
+                <button class="copy-pill pill-bb" id="historyCopyAllBbBtn">复制全部 BB</button>
+              </div>
+            </div>
+          </div>
+          <div class="batch-actions-bar" id="batchActionsBar" style="display: none;">
+            <div class="batch-actions-content">
+              <div class="batch-selection">
+                <label class="batch-checkbox">
+                  <input type="checkbox" id="selectAllCheckbox">
+                  <span class="checkmark"></span>
+                </label>
+                <span class="selection-text" id="selectionText">全选</span>
+              </div>
+              <div class="batch-operations" id="batchOperations">
+                <button class="tailwind-btn batch-btn" id="batchCopyBtn">复制链接</button>
+                <div class="copy-dropdown" id="historyCopyDropdown" style="display: none;">
+                  <button class="tailwind-btn batch-btn copy-option" data-type="direct" data-label="复制全部">复制全部</button>
+                  <button class="tailwind-btn batch-btn copy-option" data-type="html" data-label="复制全部">复制全部</button>
+                  <button class="tailwind-btn batch-btn copy-option" data-type="markdown" data-label="复制全部">复制全部</button>
+                  <button class="tailwind-btn batch-btn copy-option" data-type="bbcode" data-label="复制全部">复制全部</button>
+                </div>
+                <button class="tailwind-btn batch-btn danger" id="batchDeleteBtn">删除</button>
+              </div>
+            </div>
+          </div>
+          <div class="images-grid" id="imagesGrid"></div>
+          <div class="pagination-container" id="historyPagination"></div>
+        </div>
+      </div>
+
+      <div class="api-view" id="apiView" style="display: none;">
+        <div class="api-container">
+          <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512">
+              <path d="M392.8 1.2c-17-4.9-34.7 5-39.6 22l-128 448c-4.9 17 5 34.7 22 39.6s34.7-5 39.6-22l128-448c4.9-17-5-34.7-22-39.6zm80.6 120.1c-12.5 12.5-12.5 32.8 0 45.3L562.7 256l-89.4 89.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0l112-112c12.5-12.5 12.5-32.8 0-45.3l-112-112c-12.5-12.5-32.8-12.5-45.3 0zm-306.7 0c-12.5 12.5-32.8 12.5-45.3 0l-112 112c-12.5 12.5-12.5 32.8 0 45.3l112 112c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L77.3 256l89.4-89.4c12.5-12.5 12.5-32.8 0-45.3z" />
+            </svg>
+            API 接口
+          </h3>
+          <div class="api-section">
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                <path d="M217.9 105.9L340.7 228.7c7.2 7.2 11.3 17.1 11.3 27.3s-4.1 20.1-11.3 27.3L217.9 406.1c-6.4 6.4-15 9.9-24 9.9c-18.7 0-33.9-15.2-33.9-33.9l0-62.1L32 320c-17.7 0-32-14.3-32-32l0-64c0-17.7 14.3-32 32-32l128 0 0-62.1c0-18.7 15.2-33.9 33.9-33.9c9 0 17.6 3.6 24 9.9zM352 416l64 0c17.7 0 32-14.3 32-32l0-256c0-17.7-14.3-32-32-32l-64 0c-17.7 0-32-14.3-32-32s14.3-32 32-32l64 0c53 0 96 43 96 96l0 256c0 53-43 96-96 96l-64 0c-17.7 0-32-14.3-32-32s14.3-32 32-32z" />
+              </svg>
+              API 密钥
+            </h4>
+            <div class="api-key-container">
+              <div class="api-key-display">
+                <input type="text" id="apiKeyInput" readonly>
+                <button class="copy-btn" id="copyApiKeyBtn">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+                    <path d="M208 0L332.1 0c12.7 0 24.9 5.1 33.9 14.1l67.9 67.9c9 9 14.1 21.2 14.1 33.9L448 336c0 26.5-21.5 48-48 48l-192 0c-26.5 0-48-21.5-48-48l0-288c0-26.5 21.5-48 48-48zM48 128l80 0 0 64-64 0 0 256 192 0 0-32 64 0 0 48c0 26.5-21.5 48-48 48L48 512c-26.5 0-48-21.5-48-48L0 176c0-26.5 21.5-48 48-48z" />
+                  </svg>
+                  复制
+                </button>
+                <button class="regenerate-btn" id="regenerateApiKeyBtn">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                    <path d="M105.1 202.6c7.7-21.8 20.2-42.3 37.8-59.8c62.5-62.5 163.8-62.5 226.3 0L386.3 160 352 160c-17.7 0-32 14.3-32 32s14.3 32 32 32l111.5 0c0 0 0 0 0 0l.4 0c17.7 0 32-14.3 32-32l0-112c0-17.7-14.3-32-32-32s-32 14.3-32 32l0 35.2L414.4 97.6c-87.5-87.5-229.3-87.5-316.8 0C73.2 122 55.6 150.7 44.8 181.4c-5.9 16.7 2.9 34.9 19.5 40.8s34.9-2.9 40.8-19.5zM39 289.3c-5 1.5-9.8 4.2-13.7 8.2c-4 4-6.7 8.8-8.1 14c-.3 1.2-.6 2.5-.8 3.8c-.3 1.7-.4 3.4-.4 5.1L16 432c0 17.7 14.3 32 32 32s32-14.3 32-32l0-35.1 17.6 17.5c0 0 0 0 0 0c87.5 87.4 229.3 87.4 316.7 0c24.4-24.4 42.1-53.1 52.9-83.8c5.9-16.7-2.9-34.9-19.5-40.8s-34.9 2.9-40.8 19.5c-7.7 21.8-20.2 42.3-37.8 59.8c-62.5 62.5-163.8 62.5-226.3 0l-.1-.1L125.6 352l34.4 0c17.7 0 32-14.3 32-32s-14.3-32 32-32L48.4 288c-1.6 0-3.2 .1-4.8 .3s-3.1 .5-4.6 1z" />
+                  </svg>
+                  重新生成
+                </button>
+              </div>
+              <small class="api-key-info"><span id="apiKeyInfo"></span></small>
+            </div>
+          </div>
+
+          <div class="api-section">
+            <h4>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+                <path d="M96 0C43 0 0 43 0 96L0 416c0 53 43 96 96 96l288 0 32 0c17.7 0 32-14.3 32-32s-14.3-32-32-32l0-64c17.7 0 32-14.3 32-32l0-320c0-17.7-14.3-32-32-32L384 0 96 0zm0 384l256 0 0 64L96 448c-17.7 0-32-14.3-32-32s14.3-32 32-32zm32-240c0-8.8 7.2-16 16-16l192 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-192 0c-8.8 0-16-7.2-16-16zm16 48l192 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-192 0c-8.8 0-16-7.2-16-16z" />
+              </svg>
+              API 文档
+            </h4>
+            <div class="api-endpoint">
+              <h5>1. 上传图片</h5>
+              <div class="endpoint-info"><code>POST /api/upload</code><p>上传图片文件并返回多种格式的链接</p></div>
+              <div class="endpoint-details">
+                <strong>cURL 示例:</strong>
+                <div class="code-block-wrapper" style="position: relative;">
+                  <button class="copy-curl-btn" data-target="curlExample1" title="复制cURL" style="position: absolute; top: 8px; right: 8px; z-index: 2; background: rgba(255,255,255,0.8); border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                    复制
+                  </button>
+                  <pre class="code-block" id="curlExample1">curl -X POST "http://localhost:3000/api/upload" \
+  -H "X-API-Key: 您的API密钥" \
+  -F "image=@/path/to/your/image.jpg"</pre>
+                </div>
+              </div>
+            </div>
+            <div class="api-endpoint">
+              <h5>2. 删除图片</h5>
+              <div class="endpoint-info"><code>DELETE /api/v1/delete/{image_id}</code><p>删除指定的图片文件</p></div>
+              <div class="endpoint-details">
+                <strong>cURL 示例:</strong>
+                <div class="code-block-wrapper" style="position: relative;">
+                  <button class="copy-curl-btn" data-target="curlExample2" title="复制cURL" style="position: absolute; top: 8px; right: 8px; z-index: 2; background: rgba(255,255,255,0.8); border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                    复制
+                  </button>
+                  <pre class="code-block" id="curlExample2">curl -X DELETE "http://localhost:3000/api/v1/delete/{image_id}" \
+  -H "X-API-Key: 您的API密钥"</pre>
+                </div>
+              </div>
+            </div>
+            <div class="api-endpoint">
+              <h5>3. 列出图片</h5>
+              <div class="endpoint-info"><code>GET /api/v1/list</code><p>获取当前用户的图片列表</p></div>
+              <div class="endpoint-details">
+                <strong>cURL 示例:</strong>
+                <div class="code-block-wrapper" style="position: relative;">
+                  <button class="copy-curl-btn" data-target="curlExample3" title="复制cURL" style="position: absolute; top: 8px; right: 8px; z-index: 2; background: rgba(255,255,255,0.8); border: none; border-radius: 4px; padding: 2px 8px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px;">
+                    复制
+                  </button>
+                  <pre class="code-block" id="curlExample3">curl -X GET "http://localhost:3000/api/v1/list" \
+  -H "X-API-Key: 您的API密钥"</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-overlay" id="progressContainer" style="display: none;">
+        <div class="progress-backdrop"></div>
+        <div class="progress-content">
+          <div aria-label="Hand tapping animation" role="img" class="🤚">
+            <div class="👉"></div>
+            <div class="👉"></div>
+            <div class="👉"></div>
+            <div class="👉"></div>
+            <div class="🌴"></div>
+            <div class="👍"></div>
+          </div>
+          <div class="progress-text" id="progressText">上传中...</div>
+          <div class="progress-bar">
+            <div class="progress-bar-inner"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 设置页 -->
+      <div class="settings-view" id="settingsView" style="display: none;">
+        <div class="settings-page">
+          <div class="settings-header">
+            <h2>设置</h2>
+            <p>配置图片上传偏好、图床品牌和管理功能</p>
+          </div>
+          <div class="settings-sections">
+            <!-- 便捷功能 -->
+            <section class="settings-section" id="quickSection" data-save="local">
+              <span class="dirty-badge">未保存</span>
+              <h3>便捷功能</h3>
+              <div class="setting-row">
+                <label class="checkbox-container">
+                  <input type="checkbox" id="autoCopyLink" name="autoCopyLink">
+                  <span class="checkmark"></span>
+                  <div class="setting-label"><span class="setting-title">上传成功自动复制链接</span><span class="setting-desc">图片上传后根据选择的格式自动复制到剪贴板</span></div>
+                </label>
+              </div>
+              <div class="setting-row">
+                <label class="checkbox-container">
+                  <input type="checkbox" id="autoDelete" name="autoDelete">
+                  <span class="checkmark"></span>
+                  <div class="setting-label"><span class="setting-title">自动删除上传文件</span><span class="setting-desc">上传的图片将在指定天数后自动删除</span></div>
+                </label>
+                <div class="days-input-inline" id="daysInputInline" style="display: none;">
+                  <input type="text" id="deleteDays" value="30" placeholder="30"><span>天后删除</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- 图床自定义 -->
+            <section class="settings-section" id="adminSection" data-save="branding">
+              <span class="dirty-badge">未保存</span>
+              <h3>图床自定义</h3>
+              <div class="settings-grid">
+                <div class="setting-row"><label class="setting-title">站点名称</label><input type="text" id="brandNameInput" placeholder="Nodeimage" class="text-input"></div>
+                <div class="setting-row"><label class="setting-title">副标题</label><input type="text" id="brandSubtitleInput" placeholder="NodeSeek专用图床·克隆版" class="text-input"></div>
+                <div class="setting-row"><label class="setting-title">图标 URL</label><input type="text" id="brandIconInput" placeholder="http://... 或 data:image/png;base64,..." class="text-input"></div>
+              </div>
+            </section>
+
+            <!-- 用户注册 -->
+            <section class="settings-section" id="registerSection" data-save="branding">
+              <span class="dirty-badge">未保存</span>
+              <h3>用户注册</h3>
+              <div class="setting-row">
+                <label class="checkbox-container">
+                  <input type="checkbox" id="allowRegisterInput">
+                  <span class="checkmark"></span>
+                  <div class="setting-label"><span class="setting-title">允许用户注册</span><span class="setting-desc">默认关闭，仅管理员可创建账号</span></div>
+                </label>
+              </div>
+            </section>
+
+            <!-- 用户管理 -->
+            <section class="settings-section" id="userManagementSection">
+              <h3>用户管理</h3>
+              <div id="usersList" class="user-list"></div>
+            </section>
+
+            <!-- 备份 / 恢复 -->
+            <section class="settings-section" id="backupSection">
+              <h3>备份 / 恢复</h3>
+              <div class="setting-row">
+                <button class="tailwind-btn" id="backupDownloadBtn">打包下载备份</button>
+                <button class="tailwind-btn" id="backupRestoreBtn" style="margin-left:8px;">上传恢复备份</button>
+                <input type="file" id="backupFileInput" accept=".tar.gz,.tgz,application/gzip" style="display:none;">
+              </div>
+            </section>
+
+            <!-- 自动备份 -->
+            <section class="settings-section" id="autoBackupSection" data-save="backup">
+              <span class="dirty-badge">未保存</span>
+              <h3>自动备份</h3>
+              <div class="settings-grid">
+                <div class="setting-row"><label class="setting-title">备份间隔（小时）</label><input type="number" id="backupIntervalHours" value="24" min="1" max="720" class="text-input" style="width:100px;"></div>
+                <div class="setting-row"><label class="setting-title">保留备份数量</label><input type="number" id="backupKeepCount" value="7" min="1" max="365" class="text-input" style="width:100px;"></div>
+              </div>
+              <details class="backup-details" style="margin-top:8px;">
+                <summary>S3 兼容存储设置</summary>
+                <div class="settings-grid" style="margin-top:8px;">
+                  <div class="setting-row">
+                    <label class="setting-title">存储服务商</label>
+                    <select id="s3Provider" class="text-input" style="flex:1;">
+                      <option value="">自定义</option>
+                      <option value="r2">Cloudflare R2</option>
+                      <option value="b2">Backblaze B2</option>
+                      <option value="aws">Amazon S3</option>
+                      <option value="wasabi">Wasabi</option>
+                      <option value="do">DigitalOcean Spaces</option>
+                      <option value="minio">MinIO（自建）</option>
+                    </select>
+                  </div>
+                  <div class="setting-row"><label class="setting-title"><span class="has-tip" data-tip="S3 服务的 API 地址，选服务商会自动填写">服务地址</span></label><input type="text" id="s3Endpoint" placeholder="https://xxx.s3.amazonaws.com" class="text-input"></div>
+                  <div class="setting-row"><label class="setting-title"><span class="has-tip" data-tip="存储桶所在的地理区域，选服务商会自动填写">区域</span></label><input type="text" id="s3Region" placeholder="us-east-1" class="text-input"></div>
+                  <div class="setting-row"><label class="setting-title"><span class="has-tip" data-tip="存储桶名称，类似'文件夹'，在服务商后台创建">存储桶</span></label><input type="text" id="s3Bucket" placeholder="my-backups" class="text-input"></div>
+                  <div class="setting-row"><label class="setting-title"><span class="has-tip" data-tip="相当于'用户名'，在存储服务商后台生成">访问密钥</span></label><input type="text" id="s3AccessKey" class="text-input" placeholder="Access Key ID"></div>
+                  <div class="setting-row"><label class="setting-title"><span class="has-tip" data-tip="相当于'密码'，通常只在创建时显示一次，请妥善保存">秘密密钥</span></label><input type="password" id="s3SecretKey" class="text-input" placeholder="Secret Access Key"></div>
+                </div>
+                <button class="tailwind-btn" id="testS3Btn" style="margin-top:8px;">测试 S3 连接</button><span id="testS3Result" style="margin-left:8px;font-size:12px;"></span>
+              </details>
+              <details class="backup-details" style="margin-top:8px;">
+                <summary>Webhook 设置</summary>
+                <div class="setting-row" style="margin-top:8px;"><label class="setting-title"><span class="has-tip" data-tip="备份文件会通过 HTTP POST 发送到这个地址，可搭配自建服务或第三方工具使用">回调地址</span></label><input type="text" id="backupWebhookUrl" placeholder="https://your-server.com/upload" class="text-input" style="flex:1;"></div>
+                <button class="tailwind-btn" id="testWebhookBtn" style="margin-top:8px;">测试 Webhook</button><span id="testWebhookResult" style="margin-left:8px;font-size:12px;"></span>
+              </details>
+              <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+                <button class="tailwind-btn" id="triggerBackupBtn">立即备份</button>
+                <span id="backupStatus" style="font-size:12px;"></span>
+              </div>
+            </section>
+          </div>
+          <div class="settings-save-bar">
+            <button class="tailwind-btn apply-brand-btn" id="saveAllSettingsBtn">保存所有设置</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <footer class="global-footer">
+    Modified from
+    <a href="https://www.nodeimage.com/" target="_blank" rel="noopener noreferrer">NodeImage</a>
+  </footer>
+
+  <div class="modal" id="authModal">
+    <div class="modal-content auth-modal">
+      <div class="auth-content">
+        <div class="auth-header">
+          <h3>账户登录</h3>
+          <p>请输入用户名和密码开始使用图床</p>
+        </div>
+        <div class="auth-steps" style="margin-bottom:12px;">
+          <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-content"><p>输入账号与密码后登录。</p></div>
+          </div>
+          <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-content"><p>登录后即可上传、查看历史和使用 API。</p></div>
+          </div>
+        </div>
+        <div class="auth-form">
+          <input type="text" id="loginUsername" placeholder="用户名" autocomplete="username">
+          <input type="password" id="loginPassword" placeholder="密码" autocomplete="current-password">
+          <div class="auth-actions">
+            <button class="auth-btn-large" id="loginBtn">登录</button>
+            <button class="auth-btn-large" id="registerBtn" style="display:none;">注册</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="changeCredsModal" style="display:none;">
+    <div class="modal-content auth-modal">
+      <div class="auth-content">
+        <div class="auth-header">
+          <h3>修改账号密码</h3>
+          <p>更新后需要重新登录</p>
+        </div>
+        <div class="auth-form">
+          <input type="password" id="changeOldPassword" placeholder="原密码" autocomplete="current-password">
+          <div id="newCredFields" style="display:none; width:100%;">
+            <input type="text" id="changeNewUsername" placeholder="新的用户名" autocomplete="username">
+            <input type="password" id="changeNewPassword" placeholder="新的密码" autocomplete="new-password">
+            <input type="password" id="changeNewPasswordConfirm" placeholder="再次输入新的密码" autocomplete="new-password">
+          </div>
+          <div class="auth-actions">
+            <button class="auth-btn-large" id="changeCredsSubmit">保存修改</button>
+            <button class="auth-btn-large" id="changeCredsCancel" style="background:transparent;color:#666;border:1px solid #ddd;">取消</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="imageModal">
+    <div class="modal-controls">
+      <input type="range" min="0.2" max="5" step="0.1" value="1" class="zoom-slider" id="zoomSlider">
+      <span class="close" id="closeModal">&times;</span>
+    </div>
+    <img id="modalImage" src="" alt="放大的图片">
+  </div>
+
+  <script type="module" src="/assets/js/main.js"></script>
+</body>
+</html>

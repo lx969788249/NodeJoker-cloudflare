@@ -1,0 +1,26 @@
+name = "nodeimage"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# 前端静态资源（直接由平台托管，不走 Worker 计费）
+[assets]
+directory = "./public"
+
+# D1 数据库（首次 wrangler deploy 自动创建）
+[[d1_databases]]
+binding = "DB"
+database_name = "nodeimage-db"
+database_id = ""
+
+# R2 图片存储（首次 wrangler deploy 自动创建）
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "nodeimage-uploads"
+
+# 环境变量
+[vars]
+MAX_FILE_SIZE = "104857600"
+DAILY_UPLOAD_LIMIT = "200"
+
+[dev]
+port = 7878
