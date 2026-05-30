@@ -16,8 +16,8 @@ const ALLOWED_MIME = new Set([
   'image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/avif',
 ]);
 
-// 不需要转 WebP 的格式 (WebP 本身、GIF 保留动画)
-const SKIP_WEBP_CONVERT = new Set(['image/gif', 'image/webp', 'image/avif']);
+// 不需要转 JPEG 的格式 (GIF 保留动画, AVIF 本身已现代)
+const SKIP_JPEG_CONVERT = new Set(['image/gif', 'image/avif']);
 
 uploadRoutes.post('/upload', authMiddleware, async (c) => {
   const user = c.get('user');
@@ -46,22 +46,22 @@ uploadRoutes.post('/upload', authMiddleware, async (c) => {
   const id = nanoid();
   const inputBuffer = await fileObj.arrayBuffer();
 
-  // 上传时转 WebP (JPEG/PNG → WebP)
+  // 上传时转 JPEG (PNG/WebP → JPEG, 大幅减小体积)
   let finalBuffer: ArrayBuffer | Uint8Array = inputBuffer;
   let finalMime = fileObj.type;
   let finalExt: string;
   let finalSize = fileObj.size;
 
-  if (!SKIP_WEBP_CONVERT.has(fileObj.type)) {
+  if (!SKIP_JPEG_CONVERT.has(fileObj.type)) {
     try {
       const compConfig = await getCompressionConfig(db);
       const image = PhotonImage.new_from_byteslice(new Uint8Array(inputBuffer));
       try {
-        const webpBytes = image.get_bytes_webp();
-        finalBuffer = webpBytes;
-        finalMime = 'image/webp';
-        finalExt = 'webp';
-        finalSize = webpBytes.length;
+        const jpegBytes = image.get_bytes_jpeg(compConfig.quality);
+        finalBuffer = jpegBytes;
+        finalMime = 'image/jpeg';
+        finalExt = 'jpg';
+        finalSize = jpegBytes.length;
       } finally {
         image.free();
       }

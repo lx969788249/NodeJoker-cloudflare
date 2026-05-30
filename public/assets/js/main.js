@@ -436,7 +436,7 @@ function renderResults() {
     const thumbWrap = document.createElement('div');
     thumbWrap.className = 'thumb-wrap';
     const imageEl = document.createElement('img');
-    imageEl.src = res.thumbUrl || (res.url + '?w=400&f=webp&q=' + state.compression.quality);
+    imageEl.src = res.thumbUrl || (res.url + '?w=400&f=jpeg&q=' + state.compression.quality);
     imageEl.alt = '图片';
     imageEl.loading = 'lazy';
     thumbWrap.appendChild(imageEl);
@@ -573,7 +573,7 @@ function renderHistory() {
     const thumbWrap = document.createElement('div');
     thumbWrap.className = 'thumb-wrap';
     const imageEl = document.createElement('img');
-    imageEl.src = img.thumbUrl || (img.url + '?w=400');
+    imageEl.src = img.thumbUrl || (img.url + '?w=400&f=jpeg&q=' + state.compression.quality);
     imageEl.alt = '图片';
     imageEl.loading = 'lazy';
     thumbWrap.appendChild(imageEl);
@@ -817,7 +817,7 @@ async function deleteImages(ids) {
 }
 
 function openImageModal(url) {
-  els.modalImage.src = url + '?w=1200&f=webp&q=' + state.compression.quality;
+  els.modalImage.src = url + '?w=1200&f=jpeg&q=' + state.compression.quality;
   els.modalImage.style.transform = 'translate(-50%, -50%) scale(1)';
   els.zoomSlider.value = 1;
   els.modal.style.display = 'flex';

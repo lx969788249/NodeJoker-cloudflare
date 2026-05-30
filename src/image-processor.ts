@@ -87,7 +87,7 @@ export async function processImage(
 		}
 
 		// --- 编码输出 ---
-		const fmt = opts.format ?? 'webp';
+		const fmt = opts.format ?? 'jpeg';
 		let outputBytes: Uint8Array;
 		let contentType: string;
 		switch (fmt) {
